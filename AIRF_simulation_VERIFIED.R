@@ -3,7 +3,9 @@
 # Paper: Actuarial Design of a Continental Insurer Resolution Facility for
 #        Africa (AIRF): A Compound Poisson Excess-of-Loss Model
 # Manuscript: EUAJ-D-26-00062-R1
-# Author: Jeniffer Nasike Atetwe | jeniffernasike@gmail.com
+# Author: Jeniffer Nasike Atetwe | MSc Data Science Candidate | BSc Actuarial Science | OTHM Level 7 Diploma in Risk Management | International Diploma in Insurance Management |
+jeniffernasike@gmail.com | +254 743 901 246
+
 # =============================================================================
 # DATA SOURCE: IRA Kenya Annual Insurance Industry Statistics 2023 & 2024
 #   https://www.ira.go.ke/index.php/publications/statistics

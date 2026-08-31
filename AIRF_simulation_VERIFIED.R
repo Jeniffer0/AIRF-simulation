@@ -87,21 +87,6 @@ extract_IRA_data <- function(path_2023, path_2024) {
        mean_claim_24=mean_claim_24, total_count_24=total_count_24,
        mean_claim_23=mean_claim_23, total_count_23=total_count_23)
 }
-# Auto-run data verification if IRA files are present in data/ folder
-path_2023 <- "data/IRA_Kenya_Annual_Statistics_2023.xlsx"
-path_2024 <- "data/IRA_Kenya_Annual_Statistics_2024.xlsx"
-
-if (file.exists(path_2023) && file.exists(path_2024)) {
-  cat("\n=== AUTO-VERIFYING FROM IRA EXCEL FILES ===\n")
-  library(readxl)
-  ira_check <- extract_IRA_data(path_2023, path_2024)
-  cat("Data verification complete. Proceeding with simulation.\n\n")
-} else {
-  cat("IRA Excel files not found in data/ folder.\n")
-  cat("Using pre-extracted values (Section 1). All values verified against source.\n\n")
-}
-
-
 
 # To run with real files (adjust paths):
 # ira <- extract_IRA_data("IRA_Kenya_Annual_Statistics_2023.xlsx",
@@ -228,26 +213,48 @@ GEP_pool   <- 65000  # Pool-average GEP (KSh millions) — heterogeneous 8-count
 USD_rate   <- 130    # KSh per USD
 
 
-# ── SECTION 3: Analytical stop-loss premium (equations 8-12 of paper) ─────────
-cat("\n=== ANALYTICAL DERIVATION (Section 4.8.1) ===\n")
+# ── SECTION 3: Analytical benchmark — OCCURRENCE-LEVEL stop-loss ──────────────
+# IMPORTANT DISTINCTION (see Section 4.8.1 of paper):
+#
+# The AIRF deductible D applies to the ANNUAL AGGREGATE S(i) = sum of X(i,k),
+# NOT to each individual occurrence X(i,k).
+#
+# Therefore the quantity the AIRF model requires is:
+#   E[(S - D)+]   — aggregate stop-loss for a compound Poisson S
+#
+# This is NOT generally equal to:
+#   lambda * E[(X - D)+]  — occurrence-level stop-loss
+#
+# Example: two failures of KSh 1,000m each give S = 2,000m
+#   AIRF pays: (2,000 - 1,500)+ = 500m
+#   But neither individual loss exceeds D, so lambda*E[(X-D)+] = 0
+#   => the occurrence formula gives ZERO for this scenario
+#
+# The compound-Poisson aggregate stop-loss E[(S-D)+] has no simple
+# closed form. It is estimated numerically by the Monte Carlo simulation
+# in Section 4 below, which correctly computes max(sum(X) - D, 0).
+#
+# The lognormal occurrence-level formula below is retained as an
+# ANALYTICAL REFERENCE POINT only — NOT as the primary calculation.
+
+cat("\n=== ANALYTICAL BENCHMARK (occurrence-level, for reference only) ===\n")
+cat("NOTE: AIRF uses an AGGREGATE deductible. See comments above.\n")
+cat("The Monte Carlo simulation (Section 4) computes the correct E[(S-D)+].\n\n")
 
 z1 <- (mu_ln + sigma_ln^2 - log(D)) / sigma_ln
 z2 <- z1 - sigma_ln
 sl_per_event <- mu_X * pnorm(z1) - D * pnorm(z2)
-E_Yi_analytical <- lambda * sl_per_event
 
-cat(sprintf("z1 = (%.4f + %.4f - %.4f) / %.4f = %.4f\n",
+cat(sprintf("Occurrence-level stop-loss E[(X-D)+]:\n"))
+cat(sprintf("  z1 = (%.4f + %.4f - %.4f) / %.4f = %.4f\n",
     mu_ln, sigma_ln^2, log(D), sigma_ln, z1))
-cat(sprintf("z2 = %.4f - %.4f = %.4f\n", z1, sigma_ln, z2))
-cat(sprintf("E[max(X-D,0)] = %.0f * Phi(%.3f) - %.0f * Phi(%.3f)\n",
-    mu_X, z1, D, z2))
-cat(sprintf("              = %.0f * %.4f - %.0f * %.4f\n",
-    mu_X, pnorm(z1), D, pnorm(z2)))
-cat(sprintf("              = %.1f KSh million per event\n", sl_per_event))
-cat(sprintf("E[Y(i)] = lambda * E[max(X-D,0)] = %.2f * %.1f = %.1f KSh m/year\n",
-    lambda, sl_per_event, E_Yi_analytical))
-cat(sprintf("        = USD %s per year (analytical)\n",
-    format(round(E_Yi_analytical/USD_rate*1e6), big.mark=",")))
+cat(sprintf("  z2 = %.4f - %.4f = %.4f\n", z1, sigma_ln, z2))
+cat(sprintf("  E[(X-D)+] = %.0f*Phi(%.3f) - %.0f*Phi(%.3f) = %.1f KSh m per event\n",
+    mu_X, z1, D, z2, sl_per_event))
+cat(sprintf("  lambda * E[(X-D)+] = %.2f * %.1f = %.1f KSh m/year\n",
+    lambda, sl_per_event, lambda*sl_per_event))
+cat("  [This is NOT E[(S-D)+]. See distinction above.]\n")
+cat("  Aggregate E[(S-D)+] estimated by Monte Carlo below.\n")
 
 
 # ── SECTION 4: Monte Carlo simulation ─────────────────────────────────────────
@@ -386,7 +393,7 @@ run_scenario <- function(lambda_s, mu_X_s, CV_s, D_s, n_s, rho=0,
 
 run_scenario(0.10, mu_X, CV_X, D, n, label="lambda=0.10 (low instability)")
 run_scenario(0.25, mu_X, CV_X, D, n, label="lambda=0.25 (baseline)")
-run_scenario(0.35, mu_X, CV_X, D, n, label="lambda=0.35 (March 2026 implied)")
+run_scenario(0.35, mu_X, CV_X, D, n, label="lambda=0.35 (stress: March 2026 illustrative, NOT empirical recalibration)")
 run_scenario(0.50, mu_X, CV_X, D, n, label="lambda=0.50 (crisis, doubled)")
 run_scenario(0.25, 3000, CV_X, D, n, label="Mean=3,000m (haircut sensitivity)")
 run_scenario(0.25, mu_X, 2.00, D, n, label="CV=2.0 (heavier tail)")

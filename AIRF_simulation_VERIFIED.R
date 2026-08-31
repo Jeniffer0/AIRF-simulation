@@ -297,8 +297,10 @@ F_pool    <- 200  # USD million seed capital
 cat(sprintf("Per-country:\n"))
 cat(sprintf("  E[Y(i)] (MC)        = KSh %.1f m = USD %s/year\n",
     E_Yi_mc, format(round(E_Yi_mc/USD_rate*1e6), big.mark=",")))
-cat(sprintf("  E[Y(i)] (analytical)= KSh %.1f m  (difference due to simulation variance)\n",
-    E_Yi_analytical))
+# Occurrence-level benchmark (NOT the same as E[(S-D)+])
+occ_benchmark <- lambda * sl_per_event
+cat(sprintf("  Occurrence benchmark lambda*E[(X-D)+] = KSh %.1f m (NOT E[(S-D)+])\n", occ_benchmark))
+cat("  Monte Carlo computes E[(S-D)+] (aggregate). Difference is structural, not noise.\n")
 
 cat(sprintf("\nPool (n=%d countries):\n", n))
 cat(sprintf("  E[Y_pool]   = USD %.2f million/year\n", E_pool/USD_rate))
@@ -307,7 +309,7 @@ cat(sprintf("  VaR(99.5%%) = USD %.1f million  [paper: 20-25m range]\n", VaR_995
 cat(sprintf("  VaR(99.75%%)= USD %.1f million  [paper: 25-30m range]\n", VaR_9975/USD_rate))
 
 solvency_prob <- mean(Y_pool/USD_rate < F_pool) * 100
-cat(sprintf("  Solvency probability (F=USD %dm): %.2f%%  [Solvency II >= 99.5%%: %s]\n",
+cat(sprintf("  Simulated solvency probability (F=USD %dm): %.2f%%  [Exceeds 99.5%% threshold under stated model: %s]\n",
     F_pool, solvency_prob, if(solvency_prob >= 99.5) "✓ MET" else "✗ NOT MET"))
 
 
@@ -386,7 +388,7 @@ run_scenario <- function(lambda_s, mu_X_s, CV_s, D_s, n_s, rho=0,
   
   var_995  <- quantile(Ypool_s, 0.995) / USD_rate
   solv     <- mean(Ypool_s/USD_rate < F_pool) * 100
-  solv_ok  <- if(solv >= 99.5) "PASS" else "FAIL"
+  solv_ok  <- if(solv >= 99.5) "ABOVE 99.5% THRESHOLD" else "BELOW 99.5% THRESHOLD"
   cat(sprintf("  %-40s VaR(99.5%%)=USD%.0fm  Solvency=%.1f%%  [%s]\n",
       label, var_995, solv, solv_ok))
 }
